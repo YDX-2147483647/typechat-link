@@ -50,7 +50,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         links
     };
 
-    println!("{} episodes and {} links.", episodes.len(), links.len());
+    println!("{} episodes.", episodes.len());
+    println!(
+        "{} links. ({} point to thetype.com, {} point to typechat)",
+        episodes.len(),
+        links
+            .iter()
+            .filter(|&l| l.to_url.starts_with("https://www.thetype.com/"))
+            .count(),
+        links
+            .iter()
+            .filter(|&l| l.to_url.starts_with("https://www.thetype.com/typechat/ep-"))
+            .count(),
+    );
 
     Ok(())
 }
