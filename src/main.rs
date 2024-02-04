@@ -56,15 +56,20 @@ fn fetch_episode_detail(episode: &Episode) -> Vec<Link> {
     let selector = Selector::parse("#content > .typechat > .entry-content a").unwrap();
     document
         .select(&selector)
-        .map(|a| {
-            let to_url = a
-                .value()
-                .attr("href")
-                .expect("an anchor should have a href")
-                .to_owned();
-            Link {
-                from_url: &episode.url,
-                to_url,
+        .filter_map(|a| {
+            if let Some(to_url) = a.value().attr("href") {
+                Some(Link {
+                    from_url: &episode.url,
+                    to_url: to_url.to_owned(),
+                })
+            } else {
+                // Example: Footer of https://www.thetype.com/typechat/ep-001/
+                let html = &a.html();
+                if html == "<a>｜</a>" || html == "<a></a>" {
+                    None
+                } else {
+                    panic!("fail to get href from an anchor: {html}")
+                }
             }
         })
         .collect()
