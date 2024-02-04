@@ -26,22 +26,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         episodes
     };
 
-    // Fetch links
-    let mut links = Vec::new();
-    for e in &episodes {
-        println!("🚀 Fetching “{}”…", e.name);
+    // Load or fetch+save links
+    let links = if let Ok(mut file) = File::open(LINKS_DATA) {
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer)?;
+        serde_json::from_str(&buffer).unwrap()
+    } else {
+        let mut links = Vec::new();
+        for e in &episodes {
+            println!("🚀 Fetching “{}”…", e.name);
 
-        let mut l = data::fetch_episode_detail(e);
-        println!("✅ Got {} links.", l.len());
-        links.append(&mut l);
+            let mut l = data::fetch_episode_detail(e);
+            println!("✅ Got {} links.", l.len());
+            links.append(&mut l);
 
-        println!("💤 (Sleep for a second)");
-        thread::sleep(time::Duration::from_secs(1));
-    }
+            println!("💤 (Sleep for a second)");
+            thread::sleep(time::Duration::from_secs(1));
+        }
 
-    // Save links
-    let mut file = File::create(LINKS_DATA)?;
-    file.write_all(serde_json::to_string(&links)?.as_bytes())?;
+        // Save links
+        let mut file = File::create(LINKS_DATA)?;
+        file.write_all(serde_json::to_string(&links)?.as_bytes())?;
+        links
+    };
+
+    println!("{} episodes and {} links.", episodes.len(), links.len());
 
     Ok(())
 }

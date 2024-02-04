@@ -8,9 +8,9 @@ pub struct Episode {
     pub url: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct Link<'a> {
-    pub from_url: &'a str,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Link {
+    pub from_url: String,
     pub to_url: String,
 }
 
@@ -53,7 +53,7 @@ pub fn fetch_episode_detail(episode: &Episode) -> Vec<Link> {
         .filter_map(|a| {
             if let Some(to_url) = a.value().attr("href") {
                 Some(Link {
-                    from_url: &episode.url,
+                    from_url: episode.url.clone(),
                     to_url: to_url.to_owned(),
                 })
             } else {
