@@ -1,7 +1,13 @@
+use std::{
+    fs::{self, File},
+    io::Write,
+};
+
 use reqwest::blocking::get;
 use scraper::{ElementRef, Html, Selector};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Episode {
     pub name: String,
     pub url: String,
@@ -34,7 +40,12 @@ fn fetch_catalog() -> Vec<Episode> {
         .collect()
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let episodes = fetch_catalog();
-    println!("{:#?}", episodes);
+
+    fs::create_dir_all("data")?;
+    let mut file = File::create("data/episodes.json")?;
+    file.write_all(serde_json::to_string(&episodes)?.as_bytes())?;
+
+    Ok(())
 }
