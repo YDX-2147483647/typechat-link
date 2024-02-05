@@ -66,7 +66,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("\nStatistics:");
-    for (domain, count) in &stats::count(&links) {
+    let unsorted_stats = stats::count(&links);
+    let mut sorted_stats: Vec<(&&str, &i32)> = unsorted_stats.iter().collect();
+    sorted_stats.sort_unstable_by(|a, b| a.1.cmp(b.1).reverse());
+    for (domain, count) in sorted_stats {
         if *count > 10 {
             println!("  {:>3} {} `{}`", *count, stats::humanize(domain), domain);
         }
