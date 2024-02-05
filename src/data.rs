@@ -42,6 +42,22 @@ pub fn fetch_catalog() -> Vec<Episode> {
         .collect()
 }
 
+/// Expand a shortcut URL (e.g. https://t.cn/zHVwH1H)
+fn expand_shortcut_url(url: &str) -> String {
+    if url.starts_with("https://t.cn/") || url.starts_with("http://t.cn/") {
+        println!("🔎 Expand “{}”.", url);
+        let response = get(url).unwrap();
+
+        if let Some(location) = response.headers().get("location") {
+            location.to_str().unwrap().to_owned()
+        } else {
+            response.url().as_str().to_owned()
+        }
+    } else {
+        url.to_owned()
+    }
+}
+
 /// Fetch links in an episode's show notes
 pub fn fetch_episode_detail(episode: &Episode) -> Vec<Link> {
     let document = get(&episode.url).unwrap().text().unwrap();
@@ -54,7 +70,7 @@ pub fn fetch_episode_detail(episode: &Episode) -> Vec<Link> {
             if let Some(to_url) = a.value().attr("href") {
                 Some(Link {
                     from_url: episode.url.clone(),
-                    to_url: to_url.to_owned(),
+                    to_url: expand_shortcut_url(to_url),
                 })
             } else {
                 // Example: Footer of https://www.thetype.com/typechat/ep-001/
