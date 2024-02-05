@@ -66,9 +66,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("\nStatistics:");
-    for (url, count) in &stats::count(&links) {
+    for (domain, count) in &stats::count(&links) {
         if *count > 15 {
-            println!("  {:>3} [{}]({})", *count, stats::humanize(url), url);
+            println!("  {:>3} {} `{}`", *count, stats::humanize(domain), domain);
         }
     }
 
