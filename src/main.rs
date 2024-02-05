@@ -6,6 +6,7 @@ use std::{
 
 mod data;
 mod paint;
+mod stats;
 
 const DATA_DIR: &str = "data";
 const EPISODES_DATA: &str = "data/episodes.json";
@@ -58,22 +59,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         links
     };
 
-    println!("Data:");
-    println!("  {} episodes.", episodes.len());
     println!(
-        "  {} links. ({} point to thetype.com, {} point to typechat)",
+        "\nData: {} episodes and {} links.",
         episodes.len(),
-        links
-            .iter()
-            .filter(|&l| l.to_url.starts_with("https://www.thetype.com/"))
-            .count(),
-        links
-            .iter()
-            .filter(|&l| l.to_url.starts_with("https://www.thetype.com/typechat/ep-"))
-            .count(),
+        links.len()
     );
 
-    println!("Saving to {OUT_FILE}…");
+    println!("\nStatistics:");
+    for (url, count) in &stats::count(&links) {
+        if *count > 15 {
+            println!("  {:>3} [{}]({})", *count, stats::humanize(url), url);
+        }
+    }
+
+    println!("\nSaving to {OUT_FILE}…");
     fs::create_dir_all(OUT_DIR)?;
     let file = File::create(OUT_FILE)?;
     paint::paint(&episodes, &links, file)?;
