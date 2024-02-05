@@ -1,3 +1,5 @@
+//! Fetch data from the Internet.
+
 use reqwest::blocking::get;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
