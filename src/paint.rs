@@ -86,7 +86,7 @@ pub fn paint(
     links: &Vec<Link>,
     mut buffer: impl io::Write,
 ) -> io::Result<()> {
-    buffer.write(b"strict digraph {\nrankdir=LR\n")?;
+    buffer.write(b"digraph {\nrankdir=LR\n")?;
 
     // Paint episodes (nodes)
     for e in episodes {
