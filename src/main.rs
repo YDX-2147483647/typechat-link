@@ -12,7 +12,9 @@ const DATA_DIR: &str = "data";
 const EPISODES_DATA: &str = "data/episodes.json";
 const LINKS_DATA: &str = "data/links.json";
 const OUT_DIR: &str = "out";
-const OUT_FILE: &str = "out/typechat.dot";
+const OUT_PAINT: &str = "out/typechat.dot";
+const OUT_STATS: &str = "out/external-links.md";
+const MIN_LINK_REF: i32 = 11;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load or fetch+save episodes
@@ -65,19 +67,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         links.len()
     );
 
-    println!("\nStatistics:");
+    fs::create_dir_all(OUT_DIR)?;
+
+    println!("\nSaving to {OUT_STATS}…");
+    let mut file = File::create(OUT_STATS)?;
+    file.write(b"# Statistics of External Links\n\n")?;
     let unsorted_stats = stats::count(&links);
     let mut sorted_stats: Vec<(&&str, &i32)> = unsorted_stats.iter().collect();
     sorted_stats.sort_unstable_by(|a, b| a.1.cmp(b.1).reverse());
-    for (domain, count) in sorted_stats {
-        if *count > 10 {
-            println!("  {:>3} {} `{}`", *count, stats::humanize(domain), domain);
+    for (i, (domain, count)) in sorted_stats.iter().enumerate() {
+        if **count >= MIN_LINK_REF {
+            write!(
+                file,
+                "{i:02}. {:>3} [{}](https://{})\n",
+                **count,
+                stats::humanize(domain),
+                domain
+            )?;
         }
     }
+    write!(
+        file,
+        "\nLinks with less than {} references are omitted.\n",
+        MIN_LINK_REF
+    )?;
 
-    println!("\nSaving to {OUT_FILE}…");
-    fs::create_dir_all(OUT_DIR)?;
-    let file = File::create(OUT_FILE)?;
+    println!("\nSaving to {OUT_PAINT}…");
+    let file = File::create(OUT_PAINT)?;
     paint::paint(&episodes, &links, file)?;
 
     Ok(())
