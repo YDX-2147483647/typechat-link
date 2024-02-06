@@ -1,6 +1,6 @@
 //! Paint in-TypeChat links using Graphviz dot.
 
-use std::io;
+use std::{collections::HashSet, io};
 
 use crate::data::{Episode, Link};
 
@@ -20,20 +20,8 @@ pub fn paint(
 ) -> io::Result<()> {
     buffer.write(b"digraph {\nrankdir=LR\n")?;
 
-    // Paint episodes (nodes)
-    for e in episodes {
-        buffer.write(
-            format!(
-                "typechat_{number}[href=\"{href}\" label=\"{label}\"]\n",
-                label = e.name.replace("：", "\\n"),
-                href = e.url,
-                number = typechat_number(&e.url).expect("an episode's URL should be regular"),
-            )
-            .as_bytes(),
-        )?;
-    }
-
-    // Paint in-TypeChat links (edges)
+    // Paint in-TypeChat links (edges) and record mentioned episodes
+    let mut mentioned_url = HashSet::new();
     for l in links {
         if let Some(to_number) = typechat_number(&l.to_url) {
             let from_number =
@@ -41,6 +29,24 @@ pub fn paint(
             buffer.write(
                 format!("typechat_{from_number} -> typechat_{to_number} [color=orange]\n")
                     .as_bytes(),
+            )?;
+
+            mentioned_url.insert(&l.from_url);
+            mentioned_url.insert(&l.to_url);
+        }
+    }
+
+    // Paint mentioned episodes (nodes)
+    for e in episodes {
+        if mentioned_url.contains(&e.url) {
+            buffer.write(
+                format!(
+                    "typechat_{number}[href=\"{href}\" label=\"{label}\"]\n",
+                    label = e.name.replace("：", "\\n"),
+                    href = e.url,
+                    number = typechat_number(&e.url).expect("an episode's URL should be regular"),
+                )
+                .as_bytes(),
             )?;
         }
     }
