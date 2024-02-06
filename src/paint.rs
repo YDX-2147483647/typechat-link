@@ -32,7 +32,10 @@ pub fn paint(
                 format!(
                     "typechat_{from_number} -> typechat_{to_number} [color=\"{color}\"]\n",
                     // To be more distinguishable
-                    color = RandomColor::new().luminosity(Luminosity::Light).to_hex()
+                    color = RandomColor::new()
+                        .luminosity(Luminosity::Light)
+                        .seed(&l.to_url)
+                        .to_hex()
                 )
                 .as_bytes(),
             )?;
