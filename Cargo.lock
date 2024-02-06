@@ -851,6 +851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "random_color"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0085421bc527effa7ed6d46bac0a28734663c47abe03d80a5e78e441fad85196"
+dependencies = [
+ "rand",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1284,6 +1293,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 name = "typechat-link"
 version = "0.1.0"
 dependencies = [
+ "random_color",
  "reqwest",
  "scraper",
  "serde",

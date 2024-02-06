@@ -2,6 +2,8 @@
 
 use std::{collections::HashSet, io};
 
+use random_color::{Luminosity, RandomColor};
+
 use crate::data::{Episode, Link};
 
 /// Extract the number in a TypeChat URL
@@ -27,8 +29,12 @@ pub fn paint(
             let from_number =
                 typechat_number(&l.from_url).expect("a link should start from a typechat URL");
             buffer.write(
-                format!("typechat_{from_number} -> typechat_{to_number} [color=orange]\n")
-                    .as_bytes(),
+                format!(
+                    "typechat_{from_number} -> typechat_{to_number} [color=\"{color}\"]\n",
+                    // To be more distinguishable
+                    color = RandomColor::new().luminosity(Luminosity::Light).to_hex()
+                )
+                .as_bytes(),
             )?;
 
             mentioned_url.insert(&l.from_url);
