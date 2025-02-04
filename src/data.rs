@@ -5,7 +5,7 @@ use std::{
     thread, time,
 };
 
-use reqwest::blocking::get;
+use reqwest::blocking::Client;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -49,7 +49,7 @@ impl Episode {
 
 /// Fetch the catalog of episodes
 pub fn fetch_catalog() -> Vec<Episode> {
-    let document = get("https://www.thetype.com/typechat/")
+    let document = reqwest::blocking::get("https://www.thetype.com/typechat/")
         .unwrap()
         .text()
         .unwrap();
@@ -71,14 +71,14 @@ impl ShortcutUrlCache {
     }
 
     /// Expand a shortcut URL (e.g. https://t.cn/zHVwH1H)
-    fn expand(&mut self, url: &str) -> Result<String, reqwest::Error> {
+    fn expand(&mut self, url: &str, client: &Client) -> Result<String, reqwest::Error> {
         if url.starts_with("https://t.cn/") || url.starts_with("http://t.cn/") {
             println!("🔎 Expand “{}”.", url);
 
             match self.0.entry(url.to_owned()) {
                 Entry::Occupied(e) => Ok(e.get().to_owned()),
                 Entry::Vacant(e) => {
-                    let response = get(e.key())?;
+                    let response = client.get(e.key()).send()?;
 
                     Ok(
                         e.insert(if let Some(location) = response.headers().get("location") {
@@ -101,17 +101,28 @@ pub struct Driver {
     pub short_urls: ShortcutUrlCache,
     /// Links in episodes’ show notes
     pub episodes: HashMap<Episode, Vec<Link>>,
+    // HTTP client
+    client: Client,
 }
 
 impl Driver {
+    pub fn new(episodes: HashMap<Episode, Vec<Link>>, short_urls: ShortcutUrlCache) -> Self {
+        Driver {
+            episodes,
+            short_urls,
+            client: Client::new(),
+        }
+    }
+
     /// Fetch links in an episode’s show notes
     pub fn fetch_episode_detail(
         &mut self,
         episode: Episode,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Entry::Vacant(ep) = self.episodes.entry(episode) {
-            let links = Self::fetch_episode_detail_raw(ep.key(), &mut self.short_urls)
-                .inspect_err(|err| eprintln!("failed to fetch episode detail: {err}."))?;
+            let links =
+                Self::fetch_episode_detail_raw(ep.key(), &mut self.short_urls, &self.client)
+                    .inspect_err(|err| eprintln!("failed to fetch episode detail: {err}."))?;
             ep.insert(links);
         }
 
@@ -122,10 +133,11 @@ impl Driver {
     fn fetch_episode_detail_raw(
         episode: &Episode,
         short_urls: &mut ShortcutUrlCache,
+        client: &Client,
     ) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
         println!("🚀 Fetching “{}”…", episode.name);
 
-        let document = get(&episode.url)?.text()?;
+        let document = client.get(&episode.url).send()?.text()?;
         let document = Html::parse_document(&document);
 
         let selector = Selector::parse("#content > .typechat > .entry-content a")?;
@@ -147,7 +159,7 @@ impl Driver {
             .map(|to_url| {
                 Ok(Link {
                     from_url: episode.url.to_owned(),
-                    to_url: short_urls.expand(to_url)?.to_owned(),
+                    to_url: short_urls.expand(to_url, client)?.to_owned(),
                 })
             })
             .collect::<Result<Vec<_>, reqwest::Error>>()?;

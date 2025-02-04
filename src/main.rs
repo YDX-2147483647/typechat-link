@@ -45,10 +45,7 @@ fn load_driver() -> Result<Driver, io::Error> {
         ShortcutUrlCache::new()
     };
 
-    Ok(Driver {
-        short_urls,
-        episodes,
-    })
+    Ok(Driver::new(episodes, short_urls))
 }
 
 fn save_driver(driver: &Driver) -> Result<(), io::Error> {
