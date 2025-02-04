@@ -1,6 +1,9 @@
 //! Fetch data from the Internet.
 
-use std::{collections::HashMap, thread, time};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    thread, time,
+};
 
 use reqwest::blocking::get;
 use scraper::{ElementRef, Html, Selector};
@@ -68,20 +71,27 @@ impl ShortcutUrlCache {
     }
 
     /// Expand a shortcut URL (e.g. https://t.cn/zHVwH1H)
-    fn expand<'a>(&'a mut self, url: &'a str) -> &'a str {
+    fn expand(&mut self, url: &str) -> Result<String, reqwest::Error> {
         if url.starts_with("https://t.cn/") || url.starts_with("http://t.cn/") {
             println!("🔎 Expand “{}”.", url);
-            self.0.entry(url.to_owned()).or_insert_with(|| {
-                let response = get(url).unwrap();
 
-                if let Some(location) = response.headers().get("location") {
-                    location.to_str().unwrap().to_owned()
-                } else {
-                    response.url().as_str().to_owned()
+            match self.0.entry(url.to_owned()) {
+                Entry::Occupied(e) => Ok(e.get().to_owned()),
+                Entry::Vacant(e) => {
+                    let response = get(e.key())?;
+
+                    Ok(
+                        e.insert(if let Some(location) = response.headers().get("location") {
+                            location.to_str().unwrap().to_owned()
+                        } else {
+                            response.url().as_str().to_owned()
+                        })
+                        .to_owned(),
+                    )
                 }
-            })
+            }
         } else {
-            url
+            Ok(url.to_owned())
         }
     }
 }
@@ -99,11 +109,11 @@ impl Driver {
         &mut self,
         episode: Episode,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.episodes.entry(episode).or_insert_with_key(|ep| {
-            Self::fetch_episode_detail_raw(ep, &mut self.short_urls)
-                .inspect_err(|err| eprintln!("failed to fetch episode detail: {err}."))
-                .unwrap_or_default()
-        });
+        if let Entry::Vacant(ep) = self.episodes.entry(episode) {
+            let links = Self::fetch_episode_detail_raw(ep.key(), &mut self.short_urls)
+                .inspect_err(|err| eprintln!("failed to fetch episode detail: {err}."))?;
+            ep.insert(links);
+        }
 
         Ok(())
     }
@@ -119,14 +129,11 @@ impl Driver {
         let document = Html::parse_document(&document);
 
         let selector = Selector::parse("#content > .typechat > .entry-content a")?;
-        let links: Vec<_> = document
+        let links = document
             .select(&selector)
             .filter_map(|a| {
                 if let Some(to_url) = a.value().attr("href") {
-                    Some(Link {
-                        from_url: episode.url.to_owned(),
-                        to_url: short_urls.expand(to_url).to_owned(),
-                    })
+                    Some(to_url)
                 } else {
                     // Example: Footer of https://www.thetype.com/typechat/ep-001/
                     let html = &a.html();
@@ -137,7 +144,13 @@ impl Driver {
                     }
                 }
             })
-            .collect();
+            .map(|to_url| {
+                Ok(Link {
+                    from_url: episode.url.to_owned(),
+                    to_url: short_urls.expand(to_url)?.to_owned(),
+                })
+            })
+            .collect::<Result<Vec<_>, reqwest::Error>>()?;
 
         println!("✅ Got {} links.", links.len());
 
