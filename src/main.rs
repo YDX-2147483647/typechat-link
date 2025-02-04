@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use data::{Driver, Episode, Link, ShortcutUrlCache};
+use data::{Driver, Episode, ShortcutUrlCache};
 
 mod data;
 mod paint;
@@ -100,12 +100,12 @@ fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     }
 }
 
-fn save_stats(links: &Vec<Link>) -> Result<(), io::Error> {
+fn save_stats(episodes: &HashMap<Episode, Vec<String>>) -> Result<(), io::Error> {
     println!("\nSaving to {OUT_STATS}…");
     let mut file = File::create(OUT_STATS)?;
     file.write_all(b"# Statistics of External Links\n\n")?;
-    let unsorted_stats = stats::count(links);
-    let mut sorted_stats: Vec<(&&str, &i32)> = unsorted_stats.iter().collect();
+    let unsorted_stats = stats::count(episodes.values().flatten());
+    let mut sorted_stats: Vec<_> = unsorted_stats.iter().collect();
     sorted_stats.sort_unstable_by(|a, b| a.1.cmp(b.1).reverse());
     for (i, (domain, count)) in sorted_stats.iter().enumerate() {
         if **count >= MIN_LINK_REF {
@@ -127,26 +127,45 @@ fn save_stats(links: &Vec<Link>) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn save_paint(catalog: &Vec<Episode>, links: &Vec<Link>) -> Result<(), io::Error> {
+fn save_paint(episodes: HashMap<Episode, Vec<String>>) -> Result<(), io::Error> {
+    let mut catalog: Vec<_> = episodes.keys().cloned().collect();
+    // Sort to `paint` better
+    catalog.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+    let links: Vec<_> = episodes
+        .into_iter()
+        .flat_map(|(ep, links)| {
+            links
+                .into_iter()
+                .map(|to_url| paint::Link {
+                    from_url: ep.url.to_owned(),
+                    to_url,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
     println!("\nSaving to {OUT_PAINT}…");
     let file = File::create(OUT_PAINT)?;
-    paint::paint(catalog, links, file)?;
+    paint::paint(&catalog, &links, file)?;
 
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let driver = fetch_data()?;
-
-    let mut catalog: Vec<_> = driver.episodes.keys().cloned().collect();
-    // Sort to `paint` better
-    catalog.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    let links: Vec<_> = driver.episodes.into_values().flatten().collect();
-    println!("\n✅ Found {} links.", links.len());
+    println!(
+        "\n✅ Found {} links.",
+        driver
+            .episodes
+            .values()
+            .map(|links| links.len())
+            .sum::<usize>()
+    );
 
     fs::create_dir_all(OUT_DIR)?;
-    save_stats(&links)?;
-    save_paint(&catalog, &links)?;
+    save_stats(&driver.episodes)?;
+    save_paint(driver.episodes)?;
 
     Ok(())
 }

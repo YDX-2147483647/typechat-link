@@ -28,12 +28,6 @@ impl Hash for Episode {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Link {
-    pub from_url: String,
-    pub to_url: String,
-}
-
 impl Episode {
     fn from_anchor(anchor: ElementRef) -> Episode {
         Episode {
@@ -100,13 +94,13 @@ pub struct Driver {
     /// Short URL cache
     pub short_urls: ShortcutUrlCache,
     /// Links in episodes’ show notes
-    pub episodes: HashMap<Episode, Vec<Link>>,
+    pub episodes: HashMap<Episode, Vec<String>>,
     // HTTP client
     client: Client,
 }
 
 impl Driver {
-    pub fn new(episodes: HashMap<Episode, Vec<Link>>, short_urls: ShortcutUrlCache) -> Self {
+    pub fn new(episodes: HashMap<Episode, Vec<String>>, short_urls: ShortcutUrlCache) -> Self {
         Driver {
             episodes,
             short_urls,
@@ -134,7 +128,7 @@ impl Driver {
         episode: &Episode,
         short_urls: &mut ShortcutUrlCache,
         client: &Client,
-    ) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         println!("🚀 Fetching “{}”…", episode.name);
 
         let document = client.get(&episode.url).send()?.text()?;
@@ -144,8 +138,8 @@ impl Driver {
         let links = document
             .select(&selector)
             .filter_map(|a| {
-                if let Some(to_url) = a.value().attr("href") {
-                    Some(to_url)
+                if let Some(url) = a.value().attr("href") {
+                    Some(url)
                 } else {
                     // Example: Footer of https://www.thetype.com/typechat/ep-001/
                     let html = &a.html();
@@ -156,12 +150,7 @@ impl Driver {
                     }
                 }
             })
-            .map(|to_url| {
-                Ok(Link {
-                    from_url: episode.url.to_owned(),
-                    to_url: short_urls.expand(to_url, client)?.to_owned(),
-                })
-            })
+            .map(|url| Ok(short_urls.expand(url, client)?.to_owned()))
             .collect::<Result<Vec<_>, reqwest::Error>>()?;
 
         println!("✅ Got {} links.", links.len());

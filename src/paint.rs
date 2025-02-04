@@ -4,7 +4,13 @@ use std::{collections::HashSet, io};
 
 use random_color::{Luminosity, RandomColor};
 
-use crate::data::{Episode, Link};
+use crate::data::Episode;
+
+#[derive(Debug)]
+pub struct Link {
+    pub from_url: String,
+    pub to_url: String,
+}
 
 /// Extract the number in a TypeChat URL
 fn typechat_number(url: &str) -> Option<&str> {

@@ -2,8 +2,6 @@
 
 use std::collections::HashMap;
 
-use crate::data::Link;
-
 /// Simplify an external URL
 ///
 /// Return `Some(domain)` for pertinent URLs, return `None` otherwise.
@@ -130,11 +128,11 @@ pub fn humanize(url: &str) -> &str {
 }
 
 /// Count links' references
-pub fn count(links: &Vec<Link>) -> HashMap<&str, i32> {
+pub fn count<'a>(links: impl Iterator<Item = &'a String>) -> HashMap<&'a str, i32> {
     let mut stats = HashMap::new();
 
     for l in links {
-        if let Some(domain) = normalize(&l.to_url) {
+        if let Some(domain) = normalize(l) {
             stats
                 .entry(domain)
                 .and_modify(|count| *count += 1)

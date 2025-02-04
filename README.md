@@ -3,8 +3,8 @@
 [《字谈字畅》（_TypeChat_）][typechat]是全球首家用华语制作的字体排印主题播客节目。此项目从其网站爬取各期的参考链接，并整理出一些信息。
 
 - [`data/`][release-data]——原始数据
-  - `episodes.json`——每一期的`name`和`url`
-  - `links.json`——每个链接的`from_url`和`to_url`
+  - `episodes.json`——每一期的`name`、`url`和参考链接
+  - `short_urls.json`——短链接缓存
 - `out/`——输出文件
   - [`typechat.dot`][release-dot]——各期之间的链接关系图（可用 [Graphviz][graphviz] 生成[`typechat.svg`][release-svg]）
   - [`external-links.md`][release-md]——频繁引用的外部链接排名
