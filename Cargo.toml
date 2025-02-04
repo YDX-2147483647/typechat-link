@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ctrlc = "3.4.5"
 random_color = "0.8.0"
 reqwest = { version = "0.12", features = ["blocking"] }
 scraper = "0.18.1"

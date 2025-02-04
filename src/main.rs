@@ -2,6 +2,10 @@ use std::{
     collections::HashMap,
     fs::{self, File},
     io::{self, Read, Write},
+    sync::{
+        atomic::{self, Ordering::SeqCst},
+        Arc,
+    },
 };
 
 use data::{Driver, Episode, Link, ShortcutUrlCache};
@@ -66,13 +70,30 @@ fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     let catalog = data::fetch_catalog();
     println!("✅ Found {} episodes.", catalog.len());
 
-    // Update episodes
+    // If Ctrl+C, stop updating episodes and [`save_driver`].
+    let running = Arc::new(atomic::AtomicBool::new(true));
+    let r = Arc::clone(&running);
+    ctrlc::set_handler(move || {
+        r.store(false, SeqCst);
+    })
+    .expect("error setting Ctrl-C handler");
+
+    // Update episodes while `running`
     for e in catalog {
-        driver.fetch_episode_detail(e)?;
+        if running.load(SeqCst) {
+            driver.fetch_episode_detail(e)?;
+        } else {
+            break;
+        }
     }
+
     save_driver(&driver)?;
 
-    Ok(driver)
+    if running.load(SeqCst) {
+        Ok(driver)
+    } else {
+        panic!("shutdown by Ctrl+C.")
+    }
 }
 
 fn save_stats(links: &Vec<Link>) -> Result<(), io::Error> {
