@@ -138,7 +138,9 @@ fn save_paint(catalog: &Vec<Episode>, links: &Vec<Link>) -> Result<(), io::Error
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let driver = fetch_data()?;
 
-    let catalog: Vec<_> = driver.episodes.keys().cloned().collect();
+    let mut catalog: Vec<_> = driver.episodes.keys().cloned().collect();
+    // Sort to `paint` better
+    catalog.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     let links: Vec<_> = driver.episodes.into_values().flatten().collect();
     println!("\n✅ Found {} links.", links.len());
 
