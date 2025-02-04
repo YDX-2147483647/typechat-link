@@ -1,13 +1,28 @@
 //! Fetch data from the Internet.
 
+use std::{collections::HashMap, thread, time};
+
 use reqwest::blocking::get;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, Clone)]
 pub struct Episode {
     pub name: String,
     pub url: String,
+}
+
+impl PartialEq for Episode {
+    fn eq(&self, other: &Self) -> bool {
+        self.url == other.url
+    }
+}
+
+impl Hash for Episode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.url.hash(state);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,45 +59,91 @@ pub fn fetch_catalog() -> Vec<Episode> {
         .collect()
 }
 
-/// Expand a shortcut URL (e.g. https://t.cn/zHVwH1H)
-fn expand_shortcut_url(url: &str) -> String {
-    if url.starts_with("https://t.cn/") || url.starts_with("http://t.cn/") {
-        println!("🔎 Expand “{}”.", url);
-        let response = get(url).unwrap();
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShortcutUrlCache(HashMap<String, String>);
 
-        if let Some(location) = response.headers().get("location") {
-            location.to_str().unwrap().to_owned()
+impl ShortcutUrlCache {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    /// Expand a shortcut URL (e.g. https://t.cn/zHVwH1H)
+    fn expand<'a>(&'a mut self, url: &'a str) -> &'a str {
+        if url.starts_with("https://t.cn/") || url.starts_with("http://t.cn/") {
+            println!("🔎 Expand “{}”.", url);
+            self.0.entry(url.to_owned()).or_insert_with(|| {
+                let response = get(url).unwrap();
+
+                if let Some(location) = response.headers().get("location") {
+                    location.to_str().unwrap().to_owned()
+                } else {
+                    response.url().as_str().to_owned()
+                }
+            })
         } else {
-            response.url().as_str().to_owned()
+            url
         }
-    } else {
-        url.to_owned()
     }
 }
 
-/// Fetch links in an episode's show notes
-pub fn fetch_episode_detail(episode: &Episode) -> Vec<Link> {
-    let document = get(&episode.url).unwrap().text().unwrap();
-    let document = Html::parse_document(&document);
+pub struct Driver {
+    /// Short URL cache
+    pub short_urls: ShortcutUrlCache,
+    /// Links in episodes’ show notes
+    pub episodes: HashMap<Episode, Vec<Link>>,
+}
 
-    let selector = Selector::parse("#content > .typechat > .entry-content a").unwrap();
-    document
-        .select(&selector)
-        .filter_map(|a| {
-            if let Some(to_url) = a.value().attr("href") {
-                Some(Link {
-                    from_url: episode.url.clone(),
-                    to_url: expand_shortcut_url(to_url),
-                })
-            } else {
-                // Example: Footer of https://www.thetype.com/typechat/ep-001/
-                let html = &a.html();
-                if html == "<a>｜</a>" || html == "<a></a>" {
-                    None
+impl Driver {
+    /// Fetch links in an episode’s show notes
+    pub fn fetch_episode_detail(
+        &mut self,
+        episode: Episode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.episodes.entry(episode).or_insert_with_key(|ep| {
+            Self::fetch_episode_detail_raw(ep, &mut self.short_urls)
+                .inspect_err(|err| eprintln!("failed to fetch episode detail: {err}."))
+                .unwrap_or_default()
+        });
+
+        Ok(())
+    }
+
+    /// [`fetch_episode_detail`] without the episode cache
+    fn fetch_episode_detail_raw(
+        episode: &Episode,
+        short_urls: &mut ShortcutUrlCache,
+    ) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+        println!("🚀 Fetching “{}”…", episode.name);
+
+        let document = get(&episode.url)?.text()?;
+        let document = Html::parse_document(&document);
+
+        let selector = Selector::parse("#content > .typechat > .entry-content a")?;
+        let links: Vec<_> = document
+            .select(&selector)
+            .filter_map(|a| {
+                if let Some(to_url) = a.value().attr("href") {
+                    Some(Link {
+                        from_url: episode.url.to_owned(),
+                        to_url: short_urls.expand(to_url).to_owned(),
+                    })
                 } else {
-                    panic!("fail to get href from an anchor: {html}")
+                    // Example: Footer of https://www.thetype.com/typechat/ep-001/
+                    let html = &a.html();
+                    if html == "<a>｜</a>" || html == "<a></a>" {
+                        None
+                    } else {
+                        panic!("fail to get href from an anchor: {html}")
+                    }
                 }
-            }
-        })
-        .collect()
+            })
+            .collect();
+
+        println!("✅ Got {} links.", links.len());
+
+        println!("💤 (Sleep for a second)");
+        thread::sleep(time::Duration::from_secs(1));
+
+        Ok(links)
+    }
 }

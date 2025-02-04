@@ -1,8 +1,10 @@
 use std::{
+    collections::HashMap,
     fs::{self, File},
-    io::{Read, Write},
-    thread, time,
+    io::{self, Read, Write},
 };
+
+use data::{Driver, Episode, Link, ShortcutUrlCache};
 
 mod data;
 mod paint;
@@ -10,69 +12,74 @@ mod stats;
 
 const DATA_DIR: &str = "data";
 const EPISODES_DATA: &str = "data/episodes.json";
-const LINKS_DATA: &str = "data/links.json";
+const SHORT_URLS_DATA: &str = "data/short_urls.json";
 const OUT_DIR: &str = "out";
 const OUT_PAINT: &str = "out/typechat.dot";
 const OUT_STATS: &str = "out/external-links.md";
 const MIN_LINK_REF: i32 = 11;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load or fetch+save episodes
+fn load_driver() -> Result<Driver, io::Error> {
+    // Load episodes
     let episodes = if let Ok(mut file) = File::open(EPISODES_DATA) {
         println!("Loading episodes from {EPISODES_DATA}…");
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
-        serde_json::from_str(&buffer).unwrap()
+
+        let episodes: Vec<(_, _)> = serde_json::from_str(&buffer).unwrap();
+        episodes.into_iter().collect()
     } else {
-        println!("Fetching episodes…");
-        let episodes = data::fetch_catalog();
-
-        println!("Saving episodes to {EPISODES_DATA}…");
-        fs::create_dir_all(DATA_DIR)?;
-        let mut file = File::create(EPISODES_DATA)?;
-        file.write_all(serde_json::to_string(&episodes)?.as_bytes())?;
-
-        episodes
+        HashMap::new()
     };
 
-    // Load or fetch+save links
-    let links = if let Ok(mut file) = File::open(LINKS_DATA) {
-        println!("Loading links from {LINKS_DATA}…");
+    // Load short URL cache
+    let short_urls = if let Ok(mut file) = File::open(SHORT_URLS_DATA) {
+        println!("Loading short URL cache from {SHORT_URLS_DATA}…");
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
         serde_json::from_str(&buffer).unwrap()
     } else {
-        let mut links = Vec::new();
-        for e in &episodes {
-            println!("🚀 Fetching “{}”…", e.name);
-
-            let mut l = data::fetch_episode_detail(e);
-            println!("✅ Got {} links.", l.len());
-            links.append(&mut l);
-
-            println!("💤 (Sleep for a second)");
-            thread::sleep(time::Duration::from_secs(1));
-        }
-
-        // Save links
-        println!("Saving links to {LINKS_DATA}…");
-        let mut file = File::create(LINKS_DATA)?;
-        file.write_all(serde_json::to_string(&links)?.as_bytes())?;
-        links
+        ShortcutUrlCache::new()
     };
 
-    println!(
-        "\nData: {} episodes and {} links.",
-        episodes.len(),
-        links.len()
-    );
+    Ok(Driver {
+        short_urls,
+        episodes,
+    })
+}
 
-    fs::create_dir_all(OUT_DIR)?;
+fn save_driver(driver: &Driver) -> Result<(), io::Error> {
+    fs::create_dir_all(DATA_DIR)?;
 
+    let mut file = File::create(EPISODES_DATA)?;
+    let episodes: &Vec<(_, _)> = &driver.episodes.iter().collect();
+    file.write_all(serde_json::to_string(episodes)?.as_bytes())?;
+
+    let mut file = File::create(SHORT_URLS_DATA)?;
+    file.write_all(serde_json::to_string(&driver.short_urls)?.as_bytes())?;
+
+    Ok(())
+}
+
+fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
+    let mut driver = load_driver()?;
+
+    let catalog = data::fetch_catalog();
+    println!("✅ Found {} episodes.", catalog.len());
+
+    // Update episodes
+    for e in catalog {
+        driver.fetch_episode_detail(e)?;
+    }
+    save_driver(&driver)?;
+
+    Ok(driver)
+}
+
+fn save_stats(links: &Vec<Link>) -> Result<(), io::Error> {
     println!("\nSaving to {OUT_STATS}…");
     let mut file = File::create(OUT_STATS)?;
     file.write_all(b"# Statistics of External Links\n\n")?;
-    let unsorted_stats = stats::count(&links);
+    let unsorted_stats = stats::count(links);
     let mut sorted_stats: Vec<(&&str, &i32)> = unsorted_stats.iter().collect();
     sorted_stats.sort_unstable_by(|a, b| a.1.cmp(b.1).reverse());
     for (i, (domain, count)) in sorted_stats.iter().enumerate() {
@@ -92,9 +99,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         MIN_LINK_REF
     )?;
 
+    Ok(())
+}
+
+fn save_paint(catalog: &Vec<Episode>, links: &Vec<Link>) -> Result<(), io::Error> {
     println!("\nSaving to {OUT_PAINT}…");
     let file = File::create(OUT_PAINT)?;
-    paint::paint(&episodes, &links, file)?;
+    paint::paint(catalog, links, file)?;
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let driver = fetch_data()?;
+
+    let catalog: Vec<_> = driver.episodes.keys().cloned().collect();
+    let links: Vec<_> = driver.episodes.into_values().flatten().collect();
+    println!("\n✅ Found {} links.", links.len());
+
+    fs::create_dir_all(OUT_DIR)?;
+    save_stats(&links)?;
+    save_paint(&catalog, &links)?;
 
     Ok(())
 }
