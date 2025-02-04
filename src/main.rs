@@ -71,24 +71,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\nSaving to {OUT_STATS}…");
     let mut file = File::create(OUT_STATS)?;
-    file.write(b"# Statistics of External Links\n\n")?;
+    file.write_all(b"# Statistics of External Links\n\n")?;
     let unsorted_stats = stats::count(&links);
     let mut sorted_stats: Vec<(&&str, &i32)> = unsorted_stats.iter().collect();
     sorted_stats.sort_unstable_by(|a, b| a.1.cmp(b.1).reverse());
     for (i, (domain, count)) in sorted_stats.iter().enumerate() {
         if **count >= MIN_LINK_REF {
-            write!(
+            writeln!(
                 file,
-                "{i:02}. {:>3} [{}](https://{})\n",
+                "{i:02}. {:>3} [{}](https://{})",
                 **count,
                 stats::humanize(domain),
                 domain
             )?;
         }
     }
-    write!(
+    writeln!(
         file,
-        "\nLinks with less than {} references are omitted.\n",
+        "\nLinks with less than {} references are omitted.",
         MIN_LINK_REF
     )?;
 

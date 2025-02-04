@@ -20,7 +20,7 @@ pub fn paint(
     links: &Vec<Link>,
     mut buffer: impl io::Write,
 ) -> io::Result<()> {
-    buffer.write(b"digraph {\nrankdir=LR\n")?;
+    buffer.write_all(b"digraph {\nrankdir=LR\n")?;
 
     // Paint in-TypeChat links (edges) and record mentioned episodes
     let mut mentioned_url = HashSet::new();
@@ -28,7 +28,7 @@ pub fn paint(
         if let Some(to_number) = typechat_number(&l.to_url) {
             let from_number =
                 typechat_number(&l.from_url).expect("a link should start from a typechat URL");
-            buffer.write(
+            buffer.write_all(
                 format!(
                     "typechat_{from_number} -> typechat_{to_number} [color=\"{color}\"]\n",
                     // To be more distinguishable
@@ -48,7 +48,7 @@ pub fn paint(
     // Paint mentioned episodes (nodes)
     for e in episodes {
         if mentioned_url.contains(&e.url) {
-            buffer.write(
+            buffer.write_all(
                 format!(
                     "typechat_{number}[href=\"{href}\" label=\"{label}\"]\n",
                     label = e.name.replace("：", "\\n"),
@@ -60,7 +60,7 @@ pub fn paint(
         }
     }
 
-    buffer.write(b"}")?;
+    buffer.write_all(b"}")?;
 
     Ok(())
 }
