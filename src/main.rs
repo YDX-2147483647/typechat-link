@@ -78,7 +78,14 @@ fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     // Update episodes while `running`
     for e in catalog {
         if running.load(SeqCst) {
-            driver.fetch_episode_detail(e)?;
+            driver.fetch_episode_detail(e).inspect_err(|_| {
+                // Save eagerly
+                save_driver(&driver)
+                    .inspect(|_| println!("cache saved after failure."))
+                    .unwrap_or_else(|err| {
+                        eprintln!("failed to save cache after failure: {err}");
+                    })
+            })?;
         } else {
             break;
         }
