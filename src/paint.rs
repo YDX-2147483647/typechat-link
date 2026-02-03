@@ -2,7 +2,7 @@
 
 use std::{collections::HashSet, io};
 
-use random_color::{Luminosity, RandomColor};
+use random_color::{RandomColor, options::Luminosity};
 
 use crate::data::Episode;
 

@@ -3,8 +3,8 @@ use std::{
     fs::{self, File},
     io::{self, Read, Write},
     sync::{
-        atomic::{self, Ordering::SeqCst},
         Arc,
+        atomic::{self, Ordering::SeqCst},
     },
 };
 

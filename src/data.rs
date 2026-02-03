@@ -1,7 +1,7 @@
 //! Fetch data from the Internet.
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     thread, time,
 };
 

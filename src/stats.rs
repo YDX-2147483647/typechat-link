@@ -15,7 +15,7 @@ fn normalize(url: &str) -> Option<&str> {
         | "https://www.thetype.com/feed/typechat/"
         | "https://itunes.apple.com/cn/podcast/zi-tan-zi-chang/id1041704528"
         | "https://podcasts.apple.com/cn/podcast/%E5%AD%97%E8%B0%88%E5%AD%97%E7%95%85/id1041704528"
-        | "https://itunes.apple.com/cn/podcast/%E5%AD%97%E8%B0%88%E5%AD%97%E7%95%85/id1041704528" 
+        | "https://itunes.apple.com/cn/podcast/%E5%AD%97%E8%B0%88%E5%AD%97%E7%95%85/id1041704528"
         | "https://static.thetype.cloud/typechat/assets/typechat-weapp.jpg" => true,
         // 会员
         "https://www.thetype.com/members/" => true,
