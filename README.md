@@ -13,9 +13,9 @@
 $ cargo run
 Loading episodes from data/episodes.json…
 Loading short URL cache from data/short_urls.json…
-✅ Found 247 episodes.
+✅ Found 273 episodes.
 
-✅ Found 7473 links.
+✅ Found 8095 links.
 
 Saving to out/external-links.md…
 

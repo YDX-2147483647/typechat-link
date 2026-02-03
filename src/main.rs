@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{self, Read, Write},
+    io::{self, Write},
     sync::{
         Arc,
         atomic::{self, Ordering::SeqCst},
     },
 };
 
-use data::{Driver, Episode, ShortcutUrlCache};
+use data::{Driver, Episode};
 
 mod data;
 mod paint;
@@ -22,41 +22,31 @@ const OUT_PAINT: &str = "out/typechat.dot";
 const OUT_STATS: &str = "out/external-links.md";
 const MIN_LINK_REF: i32 = 11;
 
-fn load_driver() -> Result<Driver, io::Error> {
+fn load_driver() -> io::Result<Driver> {
     // Load episodes
-    let episodes = if let Ok(mut file) = File::open(EPISODES_DATA) {
-        println!("Loading episodes from {EPISODES_DATA}…");
-        let mut buffer = String::new();
-        file.read_to_string(&mut buffer)?;
-
-        let episodes: Vec<(_, _)> = serde_json::from_str(&buffer).unwrap();
-        episodes.into_iter().collect()
-    } else {
-        HashMap::new()
-    };
+    let episodes = fs::read_to_string(EPISODES_DATA)
+        .inspect(|_| {
+            println!("Loading episodes from {EPISODES_DATA}…");
+        })
+        .ok();
 
     // Load short URL cache
-    let short_urls = if let Ok(mut file) = File::open(SHORT_URLS_DATA) {
-        println!("Loading short URL cache from {SHORT_URLS_DATA}…");
-        let mut buffer = String::new();
-        file.read_to_string(&mut buffer)?;
-        serde_json::from_str(&buffer).unwrap()
-    } else {
-        ShortcutUrlCache::new()
-    };
+    let short_urls = fs::read_to_string(SHORT_URLS_DATA)
+        .inspect(|_| {
+            println!("Loading short URL cache from {SHORT_URLS_DATA}…");
+        })
+        .ok();
 
-    Ok(Driver::new(episodes, short_urls))
+    Driver::from_cache(episodes, short_urls)
 }
 
-fn save_driver(driver: &Driver) -> Result<(), io::Error> {
+fn save_driver(driver: &Driver) -> io::Result<()> {
+    let (episodes, short_urls) = &driver.to_cache()?;
+
     fs::create_dir_all(DATA_DIR)?;
 
-    let mut file = File::create(EPISODES_DATA)?;
-    let episodes: &Vec<(_, _)> = &driver.episodes.iter().collect();
-    file.write_all(serde_json::to_string(episodes)?.as_bytes())?;
-
-    let mut file = File::create(SHORT_URLS_DATA)?;
-    file.write_all(serde_json::to_string(&driver.short_urls)?.as_bytes())?;
+    fs::write(EPISODES_DATA, episodes)?;
+    fs::write(SHORT_URLS_DATA, short_urls)?;
 
     Ok(())
 }
@@ -64,8 +54,8 @@ fn save_driver(driver: &Driver) -> Result<(), io::Error> {
 fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     let mut driver = load_driver()?;
 
-    let catalog = data::fetch_catalog();
-    println!("✅ Found {} episodes.", catalog.len());
+    let mut fetcher = data::Fetcher::build()?;
+    println!("✅ Found {} episodes.", fetcher.len());
 
     // If Ctrl+C, stop updating episodes and [`save_driver`].
     let running = Arc::new(atomic::AtomicBool::new(true));
@@ -76,9 +66,9 @@ fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     .expect("error setting Ctrl-C handler");
 
     // Update episodes while `running`
-    for e in catalog {
+    for (episode, show_notes) in fetcher.iter() {
         if running.load(SeqCst) {
-            driver.fetch_episode_detail(e).inspect_err(|_| {
+            driver.push_episode(episode, &show_notes).inspect_err(|_| {
                 // Save eagerly
                 save_driver(&driver)
                     .inspect(|_| println!("cache saved after failure."))
@@ -100,7 +90,7 @@ fn fetch_data() -> Result<Driver, Box<dyn std::error::Error>> {
     }
 }
 
-fn save_stats(episodes: &HashMap<Episode, Vec<String>>) -> Result<(), io::Error> {
+fn save_stats(episodes: &HashMap<Episode, Vec<String>>) -> io::Result<()> {
     println!("\nSaving to {OUT_STATS}…");
     let mut file = File::create(OUT_STATS)?;
     file.write_all(b"# Statistics of External Links\n\n")?;
@@ -127,7 +117,7 @@ fn save_stats(episodes: &HashMap<Episode, Vec<String>>) -> Result<(), io::Error>
     Ok(())
 }
 
-fn save_paint(episodes: HashMap<Episode, Vec<String>>) -> Result<(), io::Error> {
+fn save_paint(episodes: HashMap<Episode, Vec<String>>) -> io::Result<()> {
     let mut catalog: Vec<_> = episodes.keys().cloned().collect();
     // Sort to `paint` better
     catalog.sort_unstable_by(|a, b| a.name.cmp(&b.name));
