@@ -24,7 +24,7 @@ Saving to out/typechat.dot…
 $ dot out/typechat.dot -Tsvg -o out/typechat.svg
 ```
 
-初次运行时`data/*.json`不存在，会自动从网上获取。
+初次运行时`data/*.json`不存在，会自动从网上获取；如想利用先前数据，可下载[`data.7z`][release-data]并解压。
 
 [typechat]: https://www.thetype.com/typechat/
 [graphviz]: https://graphviz.org/
@@ -68,6 +68,8 @@ $ dot out/typechat.dot -Tsvg -o out/typechat.svg
   </p>
   ```
 
+  2026年2月更新：TheType 于数月前更新了网站，现在这串链接已经从文字改为图标了。可对比[2024年9月的存档 (web.archive.org)](https://web.archive.org/web/20240919043824/https://www.thetype.com/typechat/ep-001/)。
+
 - [第39期](https://www.thetype.com/typechat/ep-039/)“写真歴史博物館”的地址也是`写真歴史博物館`，于是被浏览器当作[`./写真歴史博物館`](https://www.thetype.com/typechat/ep-039/%E5%86%99%E7%9C%9F%E6%AD%B4%E5%8F%B2%E5%8D%9A%E7%89%A9%E9%A4%A8)：
 
   > **Not Found**
@@ -77,12 +79,12 @@ $ dot out/typechat.dot -Tsvg -o out/typechat.svg
 
 - 可能因为部分平台字数限制太严，[第35期](https://www.thetype.com/typechat/ep-035/)采用了`t.cn`短链接服务，例如 [t.cn/zHVwH1H](https://t.cn/zHVwH1H)：
 
-  > **将要访问**
+  > **访问的网址不受信任**
   >
   > `https://en.wikipedia.org/wiki/Emoji`
   >
-  > 此页面未在微博完成域名备案，可能存在内容风险。
+  > 您访问的网址可能存在安全风险，我们建议您停止继续浏览该网址，以防财产损失
   >
-  > 如要继续访问，请注意你的隐私及财产安全。
+  > [查看规则](https://weibo.com/1934183965/5116198209718769)
 
   不过其它期似乎都没用。
